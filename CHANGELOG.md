@@ -5,10 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-02-26
+
+### Changed
+- **Clarified tag documentation**: Tags are MCP-level (stored as `#hashtag` text in notes), not native Reminders.app tags. Apple provides no public API for native tags. Updated tool descriptions, README, and CHANGELOG to reflect this accurately.
+
+---
+
 ## [1.3.0] - 2026-02-25
 
 ### Added
-- **Reminder tags**: `create_reminder`, `update_reminder`, and `create_reminders_batch` now accept a `tags` parameter. Tags are stored as native Apple Reminders `#hashtags` in the notes field, compatible with macOS Ventura+ tag features
+- **Reminder tags** (MCP-level): `create_reminder`, `update_reminder`, and `create_reminders_batch` now accept a `tags` parameter. Tags are stored as `#hashtag` text in the reminder notes field, searchable and filterable through MCP tools. **Note:** These are MCP-managed tags, not native Reminders.app tags — Apple does not provide any public API (EventKit, AppleScript, or JXA) to create native Reminders tags programmatically
 - **`list_reminder_tags`**: New tool to list all unique tags across reminders with usage counts
 - **Tag filtering in `search_reminders`**: New `tag` parameter to filter reminders by tag
 - **`clear_tags`**: `update_reminder` supports `clear_tags: true` to remove all tags from a reminder
@@ -19,7 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `search_reminders` now accepts tag-only searches (without keywords)
 
 ### Summary
-1 new tool (24 → 25 total). Tags feature brings native Apple Reminders hashtag support, enabling categorization and filtering of reminders through `#tags`.
+1 new tool (24 → 25 total). Tags feature enables MCP-level categorization and filtering of reminders through `#hashtag` text in notes. Note: Apple provides no public API for native Reminders tags.
 
 ---
 
@@ -225,7 +232,8 @@ Previously, if `calendar_name` was not specified, events/reminders would be save
 
 | Version | Total Tools | New Tools |
 |---------|-------------|-----------|
-| 1.3.0   | 25          | +1 (list_reminder_tags), tags support in create/update/search/batch |
+| 1.3.1   | 25          | Docs: clarified tags are MCP-level, not native Reminders.app tags |
+| 1.3.0   | 25          | +1 (list_reminder_tags), MCP-level tags support in create/update/search/batch |
 | 1.0.0   | 24          | Enhancement: flexible dates, fuzzy matching, filter/sort/limit, batch delete with dry_run |
 | 0.9.0   | 24          | +4 (update_calendar, search_reminders, create_reminders_batch, delete_reminders_batch) |
 | 0.6.0   | 20          | Enhancement: calendar_source parameter for disambiguation |

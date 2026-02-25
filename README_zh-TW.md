@@ -17,7 +17,7 @@
 |------|----------------|--------------|
 | 行事曆事件 | 有 | 有 |
 | **提醒事項/任務** | 無 | **有** |
-| **提醒事項 #標籤** | 無 | **有** |
+| **提醒事項 #標籤** | 無 | **有**（MCP 層級） |
 | **多關鍵字搜尋** | 無 | **有** |
 | **重複事件偵測** | 無 | **有** |
 | **衝突檢測** | 無 | **有** |
@@ -363,7 +363,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 ## 技術細節
 
-- **目前版本**：v1.3.0
+- **目前版本**：v1.3.1
 - **框架**：[MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.11.0
 - **行事曆 API**：EventKit（原生 macOS 框架）
 - **傳輸**：stdio
@@ -376,7 +376,8 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 | 版本 | 變更 |
 |------|------|
-| v1.3.0 | **提醒事項標籤**：`create_reminder`/`update_reminder`/`create_reminders_batch` 支援 `#hashtag` 標籤，`search_reminders` 可依標籤過濾，新增 `list_reminder_tags` 工具，列表/搜尋回傳含標籤；MCP SDK 0.11.0 |
+| v1.3.1 | **文檔修正**：明確說明標籤為 MCP 層級（非 Reminders.app 原生標籤）；Apple 未提供原生標籤的公開 API |
+| v1.3.0 | **提醒事項標籤**（MCP 層級）：`create_reminder`/`update_reminder`/`create_reminders_batch` 支援 `#hashtag` 標籤文字存於備註，`search_reminders` 可依標籤過濾，新增 `list_reminder_tags` 工具；MCP SDK 0.11.0。注意：標籤可透過 MCP 搜尋，但不會成為 Reminders.app 原生標籤（Apple 未提供公開 API） |
 | v1.2.0 | **冪等寫入**：`create_event`、`create_events_batch`、`create_reminder`、`create_reminders_batch`、`create_calendar` 寫入前自動查重，防止 Agent 重試產生重複資料；回傳包含 `skipped` 計數 |
 | v1.1.0 | **循環規則 + 位置**：循環事件/提醒（每日/每週/每月/每年）、含座標結構化位置、基於地理圍欄的位置提醒觸發、豐富的循環規則輸出 |
 | v1.0.0 | **開發體驗改進**：彈性日期解析（4 種格式）、模糊日曆匹配、`list_events`/`list_reminders` 篩選/排序/限制、`delete_events_batch` 預覽模式 + 日期範圍模式 |

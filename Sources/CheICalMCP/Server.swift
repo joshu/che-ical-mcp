@@ -404,7 +404,7 @@ class CheICalMCPServer {
                         "tags": .object([
                             "type": .string("array"),
                             "items": .object(["type": .string("string")]),
-                            "description": .string("Tags for the reminder (stored as #hashtags in Apple Reminders). Example: [\"grocery\", \"urgent\"]")
+                            "description": .string("Tags for the reminder (stored as #hashtag text in notes, searchable via MCP). Example: [\"grocery\", \"urgent\"]")
                         ]),
                         "location_trigger": .object([
                             "type": .string("object"),
@@ -463,7 +463,7 @@ class CheICalMCPServer {
                         "tags": .object([
                             "type": .string("array"),
                             "items": .object(["type": .string("string")]),
-                            "description": .string("Replace existing tags with these new tags (stored as #hashtags). Example: [\"grocery\", \"urgent\"]")
+                            "description": .string("Replace existing tags with these new tags (stored as #hashtag text in notes). Example: [\"grocery\", \"urgent\"]")
                         ]),
                         "clear_tags": .object([
                             "type": .string("boolean"),
@@ -820,7 +820,7 @@ class CheICalMCPServer {
             // Tag Tools
             Tool(
                 name: "list_reminder_tags",
-                description: "List all unique tags used across reminders. Tags are #hashtags stored in reminder notes. Returns tag names and usage counts.",
+                description: "List all unique tags used across reminders. Tags are #hashtag text stored in reminder notes (MCP-level, not native Reminders.app tags). Returns tag names and usage counts.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([

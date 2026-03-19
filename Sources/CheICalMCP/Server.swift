@@ -315,12 +315,16 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "delete_event",
-                description: "Delete a calendar event.",
+                description: "Delete a calendar event. For recurring events, use the 'span' parameter (not 'delete_scope') to control scope.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
                         "event_id": .object(["type": .string("string"), "description": .string("The event identifier")]),
-                        "span": .object(["type": .string("string"), "description": .string("For recurring events: 'this' or 'future'")])
+                        "span": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("this"), .string("future"), .string("all")]),
+                            "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences, 'all' deletes the entire recurring series")
+                        ])
                     ]),
                     "required": .array([.string("event_id")])
                 ]),
@@ -729,8 +733,8 @@ class CheICalMCPServer {
                         ]),
                         "span": .object([
                             "type": .string("string"),
-                            "enum": .array([.string("this"), .string("future")]),
-                            "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences")
+                            "enum": .array([.string("this"), .string("future"), .string("all")]),
+                            "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences, 'all' deletes the entire recurring series")
                         ])
                     ])
                 ]),
@@ -1181,8 +1185,13 @@ class CheICalMCPServer {
         }
 
         let spanStr = arguments["span"]?.stringValue ?? "this"
-        let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
 
+        if spanStr == "all" {
+            try await eventKitManager.deleteEventSeries(identifier: eventId)
+            return "Recurring event series deleted successfully"
+        }
+
+        let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
         try await eventKitManager.deleteEvent(identifier: eventId, span: span)
         return "Event deleted successfully"
     }
@@ -2088,6 +2097,7 @@ class CheICalMCPServer {
     private func handleDeleteEventsBatch(arguments: [String: Value]) async throws -> String {
         let dryRun = arguments["dry_run"]?.boolValue ?? true
         let spanStr = arguments["span"]?.stringValue ?? "this"
+        let deleteAll = spanStr == "all"
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
 
         // Determine mode: by event_ids or by calendar + date range
@@ -2122,6 +2132,29 @@ class CheICalMCPServer {
                     "events_to_delete": preview,
                     "message": "Set dry_run=false to execute deletion"
                 ]
+                return formatJSON(response)
+            }
+
+            if deleteAll {
+                var successCount = 0
+                var failures: [[String: String]] = []
+                for id in eventIds {
+                    do {
+                        try await eventKitManager.deleteEventSeries(identifier: id)
+                        successCount += 1
+                    } catch {
+                        failures.append(["event_id": id, "error": error.localizedDescription])
+                    }
+                }
+                var response: [String: Any] = [
+                    "dry_run": false,
+                    "mode": "by_event_ids",
+                    "total": eventIds.count,
+                    "succeeded": successCount,
+                    "failed": eventIds.count - successCount,
+                    "span": "all"
+                ]
+                if !failures.isEmpty { response["failures"] = failures }
                 return formatJSON(response)
             }
 
@@ -2184,6 +2217,31 @@ class CheICalMCPServer {
             }
 
             let eventIds = events.compactMap { $0.eventIdentifier }
+
+            if deleteAll {
+                var successCount = 0
+                var failures: [[String: String]] = []
+                for id in eventIds {
+                    do {
+                        try await eventKitManager.deleteEventSeries(identifier: id)
+                        successCount += 1
+                    } catch {
+                        failures.append(["event_id": id, "error": error.localizedDescription])
+                    }
+                }
+                var response: [String: Any] = [
+                    "dry_run": false,
+                    "mode": "by_date_range",
+                    "calendar": calendarName,
+                    "total": eventIds.count,
+                    "succeeded": successCount,
+                    "failed": eventIds.count - successCount,
+                    "span": "all"
+                ]
+                if !failures.isEmpty { response["failures"] = failures }
+                return formatJSON(response)
+            }
+
             let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span)
             var response: [String: Any] = [
                 "dry_run": false,

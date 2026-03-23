@@ -56,6 +56,20 @@
 
 ### Claude Code (CLI)
 
+#### 方式 A：安裝為 Plugin（推薦）
+
+Plugin 包含快捷指令（`/today`、`/week`、`/quick-event`、`/remind`）、skills，以及**建立/修改事件時自動驗證星期的 PreToolUse hook** — 防止日期與星期不符的錯誤。
+
+```bash
+claude plugin add --marketplace psychquant-claude-plugins che-ical-mcp
+```
+
+> **備註：** Plugin 內建自動下載功能。如果 `~/bin/CheICalMCP` 不存在，首次使用時會自動從 GitHub Releases 下載。
+
+#### 方式 B：僅安裝 MCP Server
+
+如果只需要 MCP 功能，不需要 plugin 附加功能：
+
 ```bash
 # 建立 ~/bin（如果不存在）
 mkdir -p ~/bin

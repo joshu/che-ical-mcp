@@ -56,6 +56,20 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ### For Claude Code (CLI)
 
+#### Option A: Install as Plugin (Recommended)
+
+The plugin includes slash commands (`/today`, `/week`, `/quick-event`, `/remind`), skills, and **a PreToolUse hook that automatically verifies day-of-week** when creating or updating events — preventing date/weekday mismatch errors.
+
+```bash
+claude plugin add --marketplace psychquant-claude-plugins che-ical-mcp
+```
+
+> **Note:** The plugin wraps the MCP binary with auto-download. If the binary is not found at `~/bin/CheICalMCP`, it will be downloaded from GitHub Releases on first use.
+
+#### Option B: Install as standalone MCP
+
+If you only need the MCP server without plugin features:
+
 ```bash
 # Create ~/bin if needed
 mkdir -p ~/bin

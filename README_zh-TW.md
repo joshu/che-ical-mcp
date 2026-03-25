@@ -370,8 +370,25 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 | Server disconnected | 重新編譯 `swift build -c release` |
 | 權限被拒絕 | 在系統設定 > 隱私權與安全性中授予行事曆/提醒事項存取權限 |
 | 權限對話框沒有出現 | 參考[授予權限](#授予權限)中的 macOS Sequoia 解決方案 |
+| **SSH 連線時權限被拒** | 參考下方 [SSH 存取](#ssh-存取) |
 | 找不到行事曆 | 確認行事曆在 macOS 行事曆 App 中可見 |
 | 提醒事項未同步 | 在系統設定中檢查 iCloud 同步 |
+
+### SSH 存取
+
+macOS TCC（透明度、同意與控制）的隱私權限是**依應用程式**授予的。SSH session 跑在 `sshd` 底下，是不同的安全環境 — 因此在本機授予 Terminal 或 Claude Code 的權限**不會**延伸到 SSH。
+
+**方法 A — 先在本機執行一次（建議）：**
+1. 在目標 Mac 上**本機**（非 SSH）執行一次 `CheICalMCP`
+2. TCC 對話框出現時授予行事曆和提醒事項存取權限
+3. 之後 SSH session 應能沿用該 binary 的授權
+
+**方法 B — 授予 sshd 完整磁碟存取權限：**
+1. 打開**系統設定 → 隱私權與安全性 → 完整磁碟存取權限**
+2. 點 **+**，按 <kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd>，輸入 `/usr/sbin/sshd` 加入
+3. 重新建立 SSH 連線
+
+> ⚠️ 方法 B 會授予 `sshd` 廣泛的檔案存取權限 — 請僅在完全由你控管的機器上使用。
 
 ---
 

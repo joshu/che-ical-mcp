@@ -15,6 +15,11 @@ actor EventKitManager {
 
     // MARK: - Access Request
 
+    private static var isSSHSession: Bool {
+        ProcessInfo.processInfo.environment["SSH_CLIENT"] != nil
+            || ProcessInfo.processInfo.environment["SSH_CONNECTION"] != nil
+    }
+
     func requestCalendarAccess() async throws {
         if hasCalendarAccess { return }
 
@@ -22,13 +27,13 @@ actor EventKitManager {
             let granted = try await eventStore.requestFullAccessToEvents()
             hasCalendarAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Calendar")
+                throw EventKitError.accessDenied(type: "Calendar", isSSH: Self.isSSHSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .event)
             hasCalendarAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Calendar")
+                throw EventKitError.accessDenied(type: "Calendar", isSSH: Self.isSSHSession)
             }
         }
     }
@@ -40,13 +45,13 @@ actor EventKitManager {
             let granted = try await eventStore.requestFullAccessToReminders()
             hasReminderAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Reminders")
+                throw EventKitError.accessDenied(type: "Reminders", isSSH: Self.isSSHSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .reminder)
             hasReminderAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Reminders")
+                throw EventKitError.accessDenied(type: "Reminders", isSSH: Self.isSSHSession)
             }
         }
     }
@@ -1238,7 +1243,7 @@ struct LocationTriggerInput {
 // MARK: - Errors
 
 enum EventKitError: LocalizedError {
-    case accessDenied(type: String)
+    case accessDenied(type: String, isSSH: Bool = false)
     case calendarNotFound(identifier: String, available: [String] = [])
     case calendarNotFoundWithSource(name: String, source: String, available: [String] = [])
     case multipleCalendarsFound(name: String, sources: String)
@@ -1249,7 +1254,17 @@ enum EventKitError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .accessDenied(let type):
+        case .accessDenied(type: let type, isSSH: let isSSH):
+            if isSSH {
+                return """
+                \(type) access denied (SSH session detected). \
+                macOS TCC does not carry privacy permissions to SSH sessions. Workarounds:
+                1. Run CheICalMCP once LOCALLY first to trigger the TCC permission dialog
+                2. Or grant Full Disk Access to /usr/sbin/sshd: \
+                System Settings → Privacy & Security → Full Disk Access → add sshd
+                3. After either step, restart the SSH session
+                """
+            }
             return """
             \(type) access denied. Please grant permission:
             1. Open System Settings → Privacy & Security → \(type)

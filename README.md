@@ -370,8 +370,25 @@ If ambiguity is detected, the error message will list all available sources.
 | Server disconnected | Rebuild with `swift build -c release` |
 | Permission denied | Grant Calendar/Reminders access in System Settings > Privacy & Security |
 | Permission dialog never appears | See [Grant Permissions](#grant-permissions) for macOS Sequoia workaround |
+| **Permission denied over SSH** | See [SSH Access](#ssh-access) below |
 | Calendar not found | Ensure the calendar is visible in macOS Calendar app |
 | Reminders not syncing | Check iCloud sync in System Settings |
+
+### SSH Access
+
+macOS TCC (Transparency, Consent, and Control) grants privacy permissions **per-application**. SSH sessions run under `sshd`, which is a different security context — so permissions granted to Terminal or Claude Code locally do **not** carry over to SSH.
+
+**Workaround A — Run locally first (recommended):**
+1. Run `CheICalMCP` once on the target Mac **locally** (not over SSH)
+2. Grant Calendar and Reminders access when the TCC dialog appears
+3. SSH sessions should then inherit the grant for the `CheICalMCP` binary
+
+**Workaround B — Grant Full Disk Access to sshd:**
+1. Open **System Settings → Privacy & Security → Full Disk Access**
+2. Click **+**, press <kbd>⌘</kbd><kbd>⇧</kbd><kbd>G</kbd>, type `/usr/sbin/sshd`, and add it
+3. Restart the SSH session
+
+> ⚠️ Workaround B grants `sshd` broad file access — only use this on machines you fully control.
 
 ---
 

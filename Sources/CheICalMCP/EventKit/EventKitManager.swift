@@ -385,12 +385,29 @@ actor EventKitManager {
         alarmOffsets: [Int]? = nil,
         recurrenceRule: RecurrenceRuleInput? = nil,
         clearRecurrence: Bool = false,
-        structuredLocation: StructuredLocationInput? = nil
+        structuredLocation: StructuredLocationInput? = nil,
+        span: EKSpan = .thisEvent,
+        occurrenceDate: Date? = nil
     ) async throws -> EKEvent {
         try await requestCalendarAccess()
 
-        guard let event = eventStore.event(withIdentifier: identifier) else {
+        guard let masterEvent = eventStore.event(withIdentifier: identifier) else {
             throw EventKitError.eventNotFound(identifier: identifier)
+        }
+
+        // For recurring events, resolve the specific occurrence when needed
+        let event: EKEvent
+        if masterEvent.hasRecurrenceRules, let date = occurrenceDate {
+            guard let occurrence = findOccurrence(identifier: identifier, on: date) else {
+                throw EventKitError.eventNotFound(identifier: "\(identifier) (no occurrence on \(date))")
+            }
+            event = occurrence
+        } else if masterEvent.hasRecurrenceRules && span == .futureEvents {
+            throw EventKitError.invalidTimeRange(
+                message: "For recurring events with span 'future', occurrence_date is required to identify which occurrence to modify from."
+            )
+        } else {
+            event = masterEvent
         }
 
         if let t = title { event.title = t }
@@ -465,19 +482,50 @@ actor EventKitManager {
             event.structuredLocation = structured
         }
 
-        try eventStore.save(event, span: .thisEvent)
+        try eventStore.save(event, span: span)
         markNeedsRefresh()
         return event
     }
 
-    func deleteEvent(identifier: String, span: EKSpan = .thisEvent) async throws {
+    /// Find a specific occurrence of a recurring event on a given date.
+    /// Returns the occurrence EKEvent (not the master event).
+    func findOccurrence(identifier: String, on date: Date) -> EKEvent? {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return nil }
+        let predicate = eventStore.predicateForEvents(withStart: dayStart, end: dayEnd, calendars: nil)
+
+        var target: EKEvent?
+        eventStore.enumerateEvents(matching: predicate) { event, stop in
+            if event.eventIdentifier == identifier {
+                target = event
+                stop.pointee = true
+            }
+        }
+        return target
+    }
+
+    func deleteEvent(identifier: String, span: EKSpan = .thisEvent, occurrenceDate: Date? = nil) async throws {
         try await requestCalendarAccess()
 
-        guard let event = eventStore.event(withIdentifier: identifier) else {
+        guard let masterEvent = eventStore.event(withIdentifier: identifier) else {
             throw EventKitError.eventNotFound(identifier: identifier)
         }
 
-        try eventStore.remove(event, span: span)
+        // For recurring events with this/future span, resolve the specific occurrence
+        if masterEvent.hasRecurrenceRules, let date = occurrenceDate {
+            guard let occurrence = findOccurrence(identifier: identifier, on: date) else {
+                throw EventKitError.eventNotFound(identifier: "\(identifier) (no occurrence on \(date))")
+            }
+            try eventStore.remove(occurrence, span: span)
+        } else if masterEvent.hasRecurrenceRules && span != .thisEvent {
+            // futureEvents on master = deletes entire series — require occurrence_date
+            throw EventKitError.invalidTimeRange(
+                message: "For recurring events with span 'future', occurrence_date is required to identify which occurrence to start from."
+            )
+        } else {
+            try eventStore.remove(masterEvent, span: span)
+        }
         markNeedsRefresh()
     }
 
@@ -633,7 +681,8 @@ actor EventKitManager {
     /// Delete multiple events at once
     func deleteEventsBatch(
         identifiers: [String],
-        span: EKSpan = .thisEvent
+        span: EKSpan = .thisEvent,
+        occurrenceDates: [String: Date]? = nil
     ) async throws -> BatchDeleteResult {
         try await requestCalendarAccess()
 
@@ -642,11 +691,24 @@ actor EventKitManager {
 
         for id in identifiers {
             do {
-                guard let event = eventStore.event(withIdentifier: id) else {
+                guard let masterEvent = eventStore.event(withIdentifier: id) else {
                     failures.append((id, "Event not found"))
                     continue
                 }
-                try eventStore.remove(event, span: span)
+
+                // For recurring events, resolve occurrence if date provided
+                if masterEvent.hasRecurrenceRules, let date = occurrenceDates?[id] {
+                    guard let occurrence = findOccurrence(identifier: id, on: date) else {
+                        failures.append((id, "No occurrence found on specified date"))
+                        continue
+                    }
+                    try eventStore.remove(occurrence, span: span)
+                } else if masterEvent.hasRecurrenceRules && span == .futureEvents {
+                    failures.append((id, "For recurring events with span 'future', occurrence_date is required"))
+                    continue
+                } else {
+                    try eventStore.remove(masterEvent, span: span)
+                }
                 successCount += 1
             } catch {
                 failures.append((id, error.localizedDescription))

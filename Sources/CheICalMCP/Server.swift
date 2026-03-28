@@ -241,7 +241,7 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "update_event",
-                description: "Update an existing calendar event. When changing the event date, providing only start_time will automatically preserve the original duration.",
+                description: "Update an existing calendar event. When changing the event date, providing only start_time will automatically preserve the original duration. For recurring events, use 'span' to control whether changes apply to this occurrence, future occurrences, or all.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -307,6 +307,15 @@ class CheICalMCPServer {
                                 "radius": .object(["type": .string("number"), "description": .string("Radius in meters (default 100)")])
                             ]),
                             "required": .array([.string("title")])
+                        ]),
+                        "span": .object([
+                            "type": .string("string"),
+                            "enum": .array([.string("this"), .string("future"), .string("all")]),
+                            "description": .string("For recurring events: 'this' (default) updates only this occurrence, 'future' updates this and all future occurrences, 'all' updates the entire series")
+                        ]),
+                        "occurrence_date": .object([
+                            "type": .string("string"),
+                            "description": .string("For recurring events: the date of the specific occurrence to modify (e.g., '2026-03-28'). Required when span is 'this' or 'future' on recurring events.")
                         ])
                     ]),
                     "required": .array([.string("event_id")])
@@ -315,7 +324,7 @@ class CheICalMCPServer {
             ),
             Tool(
                 name: "delete_event",
-                description: "Delete a calendar event. For recurring events, use the 'span' parameter (not 'delete_scope') to control scope.",
+                description: "Delete a calendar event. For recurring events, use the 'span' parameter (not 'delete_scope') to control scope. When span is 'this' or 'future' on a recurring event, occurrence_date is required to identify the specific occurrence.",
                 inputSchema: .object([
                     "type": .string("object"),
                     "properties": .object([
@@ -324,6 +333,10 @@ class CheICalMCPServer {
                             "type": .string("string"),
                             "enum": .array([.string("this"), .string("future"), .string("all")]),
                             "description": .string("For recurring events: 'this' (default) deletes only this occurrence, 'future' deletes this and all future occurrences, 'all' deletes the entire recurring series")
+                        ]),
+                        "occurrence_date": .object([
+                            "type": .string("string"),
+                            "description": .string("For recurring events: the date of the specific occurrence to act on (e.g., '2026-03-28' or '2026-03-28T09:30:00+08:00'). Required when span is 'this' or 'future' on recurring events.")
                         ])
                     ]),
                     "required": .array([.string("event_id")])
@@ -1149,6 +1162,15 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue
+        let occurrenceDate: Date? = try arguments["occurrence_date"]?.stringValue.map { try parseFlexibleDate($0) }
+
+        let spanStr = arguments["span"]?.stringValue ?? "this"
+        let span: EKSpan
+        switch spanStr {
+        case "future": span = .futureEvents
+        case "all": span = .futureEvents  // "all" on update = modify entire series from master
+        default: span = .thisEvent
+        }
 
         var alarmOffsets: [Int]?
         if let alarmsArray = arguments["alarms_minutes_offsets"]?.arrayValue {
@@ -1173,7 +1195,9 @@ class CheICalMCPServer {
             alarmOffsets: alarmOffsets,
             recurrenceRule: recurrenceRule,
             clearRecurrence: clearRecurrence,
-            structuredLocation: structuredLocation
+            structuredLocation: structuredLocation,
+            span: span,
+            occurrenceDate: occurrenceDate
         )
 
         return "Updated event: \(event.title ?? "")"
@@ -1185,6 +1209,7 @@ class CheICalMCPServer {
         }
 
         let spanStr = arguments["span"]?.stringValue ?? "this"
+        let occurrenceDate: Date? = try arguments["occurrence_date"]?.stringValue.map { try parseFlexibleDate($0) }
 
         if spanStr == "all" {
             try await eventKitManager.deleteEventSeries(identifier: eventId)
@@ -1192,7 +1217,7 @@ class CheICalMCPServer {
         }
 
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
-        try await eventKitManager.deleteEvent(identifier: eventId, span: span)
+        try await eventKitManager.deleteEvent(identifier: eventId, span: span, occurrenceDate: occurrenceDate)
         return "Event deleted successfully"
     }
 

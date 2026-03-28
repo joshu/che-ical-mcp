@@ -344,6 +344,40 @@ class CheICalMCPServer {
                 annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
             ),
 
+            // Undo/Redo Tools
+            Tool(
+                name: "undo",
+                description: "Undo the most recent calendar or reminder operation. Returns what was undone. Only works for operations in the current server session.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([:])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
+            ),
+            Tool(
+                name: "redo",
+                description: "Redo the last undone operation. Only available after an undo.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([:])
+                ]),
+                annotations: .init(readOnlyHint: false, destructiveHint: true, openWorldHint: false)
+            ),
+            Tool(
+                name: "undo_history",
+                description: "List undoable operations with timestamps. Shows the undo stack (newest first) and redo stack.",
+                inputSchema: .object([
+                    "type": .string("object"),
+                    "properties": .object([
+                        "limit": .object([
+                            "type": .string("integer"),
+                            "description": .string("Maximum number of entries to return (default: 10)")
+                        ])
+                    ])
+                ]),
+                annotations: .init(readOnlyHint: true, destructiveHint: false, openWorldHint: false)
+            ),
+
             // Reminder Tools
             Tool(
                 name: "list_reminders",
@@ -901,6 +935,14 @@ class CheICalMCPServer {
         case "delete_event":
             return try await handleDeleteEvent(arguments: arguments)
 
+        // Undo/Redo Tools
+        case "undo":
+            return try await handleUndo()
+        case "redo":
+            return try await handleRedo()
+        case "undo_history":
+            return try await handleUndoHistory(arguments: arguments)
+
         // Reminder Tools
         case "list_reminders":
             return try await handleListReminders(arguments: arguments)
@@ -1220,6 +1262,47 @@ class CheICalMCPServer {
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
         try await eventKitManager.deleteEvent(identifier: eventId, span: span, occurrenceDate: occurrenceDate)
         return "Event deleted successfully"
+    }
+
+    // MARK: - Undo/Redo Handlers
+
+    private func handleUndo() async throws -> String {
+        guard let record = await CalendarUndoManager.shared.popUndo() else {
+            return "Nothing to undo"
+        }
+        return try await eventKitManager.executeUndo(record.operation)
+    }
+
+    private func handleRedo() async throws -> String {
+        guard let record = await CalendarUndoManager.shared.popRedo() else {
+            return "Nothing to redo"
+        }
+        return try await eventKitManager.executeRedo(record.operation)
+    }
+
+    private func handleUndoHistory(arguments: [String: Value]) async throws -> String {
+        let limit = arguments["limit"]?.intValue ?? 10
+        let history = await CalendarUndoManager.shared.history()
+        let undoCount = await CalendarUndoManager.shared.undoCount
+        let redoCount = await CalendarUndoManager.shared.redoCount
+
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "HH:mm:ss"
+
+        let entries = history.prefix(limit).map { entry -> [String: Any] in
+            [
+                "index": entry.index,
+                "description": entry.description,
+                "time": dateFormatter.string(from: entry.timestamp)
+            ]
+        }
+
+        let response: [String: Any] = [
+            "undo_available": undoCount,
+            "redo_available": redoCount,
+            "history": entries
+        ]
+        return formatJSON(response)
     }
 
     // MARK: - Reminder Handlers

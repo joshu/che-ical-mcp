@@ -2120,20 +2120,21 @@ class CheICalMCPServer {
     }
 
     /// Delete a list of events, handling span="all" by calling deleteEventSeries per event.
-    /// occurrenceDates maps event IDs to their occurrence dates (for recurring event resolution).
+    /// items pairs each event ID with its occurrence date (for recurring event resolution).
     private func deleteEventsWithSpan(
-        eventIds: [String],
+        items: [(identifier: String, occurrenceDate: Date?)],
         spanStr: String,
         mode: String,
-        extraFields: [String: Any] = [:],
-        occurrenceDates: [String: Date]? = nil
+        extraFields: [String: Any] = [:]
     ) async throws -> String {
         let deleteAll = spanStr == "all"
 
         if deleteAll {
+            // Deduplicate IDs for series deletion (each series only needs one delete)
+            let uniqueIds = Array(Set(items.map(\.identifier)))
             var successCount = 0
             var failures: [[String: String]] = []
-            for id in eventIds {
+            for id in uniqueIds {
                 do {
                     try await eventKitManager.deleteEventSeries(identifier: id)
                     successCount += 1
@@ -2144,9 +2145,9 @@ class CheICalMCPServer {
             var response: [String: Any] = [
                 "dry_run": false,
                 "mode": mode,
-                "total": eventIds.count,
+                "total": uniqueIds.count,
                 "succeeded": successCount,
-                "failed": eventIds.count - successCount,
+                "failed": uniqueIds.count - successCount,
                 "span": "all"
             ]
             for (k, v) in extraFields { response[k] = v }
@@ -2155,11 +2156,11 @@ class CheICalMCPServer {
         }
 
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
-        let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span, occurrenceDates: occurrenceDates)
+        let result = try await eventKitManager.deleteEventsBatch(items: items, span: span)
         var response: [String: Any] = [
             "dry_run": false,
             "mode": mode,
-            "total": eventIds.count,
+            "total": items.count,
             "succeeded": result.successCount,
             "failed": result.failedCount,
             "span": spanStr
@@ -2211,8 +2212,10 @@ class CheICalMCPServer {
                 return formatJSON(response)
             }
 
+            // Mode 1: no occurrence dates available from caller — pass nil
+            let batchItems = eventIds.map { (identifier: $0, occurrenceDate: nil as Date?) }
             return try await deleteEventsWithSpan(
-                eventIds: eventIds, spanStr: spanStr, mode: "by_event_ids"
+                items: batchItems, spanStr: spanStr, mode: "by_event_ids"
             )
 
         } else if let calendarName = arguments["calendar_name"]?.stringValue {
@@ -2259,19 +2262,15 @@ class CheICalMCPServer {
                 return formatJSON(response)
             }
 
-            let eventIds = events.compactMap { $0.eventIdentifier }
-            // Build occurrence dates map from listed events (which are real occurrences)
-            var occDates: [String: Date] = [:]
-            for event in events {
-                if let eid = event.eventIdentifier {
-                    occDates[eid] = event.startDate
-                }
+            // Build items with per-occurrence dates (supports multiple occurrences of same series)
+            let batchItems: [(identifier: String, occurrenceDate: Date?)] = events.compactMap { event in
+                guard let eid = event.eventIdentifier else { return nil }
+                return (identifier: eid, occurrenceDate: event.startDate)
             }
 
             return try await deleteEventsWithSpan(
-                eventIds: eventIds, spanStr: spanStr, mode: "by_date_range",
-                extraFields: ["calendar": calendarName],
-                occurrenceDates: occDates
+                items: batchItems, spanStr: spanStr, mode: "by_date_range",
+                extraFields: ["calendar": calendarName]
             )
 
         } else {

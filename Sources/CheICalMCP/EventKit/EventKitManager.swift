@@ -684,40 +684,40 @@ actor EventKitManager {
 
     // MARK: - Batch Operations
 
-    /// Delete multiple events at once
+    /// Delete multiple events at once.
+    /// Each item is (eventIdentifier, occurrenceDate). For recurring events, occurrenceDate is required.
+    /// The same eventIdentifier can appear multiple times with different dates (multiple occurrences).
     func deleteEventsBatch(
-        identifiers: [String],
-        span: EKSpan = .thisEvent,
-        occurrenceDates: [String: Date]? = nil
+        items: [(identifier: String, occurrenceDate: Date?)],
+        span: EKSpan = .thisEvent
     ) async throws -> BatchDeleteResult {
         try await requestCalendarAccess()
 
         var successCount = 0
         var failures: [(String, String)] = []
 
-        for id in identifiers {
+        for item in items {
             do {
-                guard let masterEvent = eventStore.event(withIdentifier: id) else {
-                    failures.append((id, "Event not found"))
+                guard let masterEvent = eventStore.event(withIdentifier: item.identifier) else {
+                    failures.append((item.identifier, "Event not found"))
                     continue
                 }
 
-                // For recurring events, resolve occurrence if date provided
-                if masterEvent.hasRecurrenceRules, let date = occurrenceDates?[id] {
-                    guard let occurrence = findOccurrence(identifier: id, on: date) else {
-                        failures.append((id, "No occurrence found on specified date"))
+                if masterEvent.hasRecurrenceRules, let date = item.occurrenceDate {
+                    guard let occurrence = findOccurrence(identifier: item.identifier, on: date) else {
+                        failures.append((item.identifier, "No occurrence found on specified date"))
                         continue
                     }
                     try eventStore.remove(occurrence, span: span)
-                } else if masterEvent.hasRecurrenceRules && span == .futureEvents {
-                    failures.append((id, "For recurring events with span 'future', occurrence_date is required"))
+                } else if masterEvent.hasRecurrenceRules {
+                    failures.append((item.identifier, "For recurring events, occurrence_date is required"))
                     continue
                 } else {
                     try eventStore.remove(masterEvent, span: span)
                 }
                 successCount += 1
             } catch {
-                failures.append((id, error.localizedDescription))
+                failures.append((item.identifier, error.localizedDescription))
             }
         }
 

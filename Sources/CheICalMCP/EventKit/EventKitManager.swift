@@ -387,7 +387,8 @@ actor EventKitManager {
         clearRecurrence: Bool = false,
         structuredLocation: StructuredLocationInput? = nil,
         span: EKSpan = .thisEvent,
-        occurrenceDate: Date? = nil
+        occurrenceDate: Date? = nil,
+        applyToAll: Bool = false
     ) async throws -> EKEvent {
         try await requestCalendarAccess()
 
@@ -395,19 +396,24 @@ actor EventKitManager {
             throw EventKitError.eventNotFound(identifier: identifier)
         }
 
-        // For recurring events, resolve the specific occurrence when needed
+        // For recurring events, resolve the specific occurrence when needed.
+        // When applyToAll is true, operate on master event directly (correct for "all" series updates).
+        // "this" or "future" on recurring → require occurrence_date to find the right occurrence.
         let event: EKEvent
-        if masterEvent.hasRecurrenceRules, let date = occurrenceDate {
+        if !masterEvent.hasRecurrenceRules {
+            event = masterEvent
+        } else if applyToAll {
+            // "all" = modify entire series via master event + .futureEvents
+            event = masterEvent
+        } else if let date = occurrenceDate {
             guard let occurrence = findOccurrence(identifier: identifier, on: date) else {
                 throw EventKitError.eventNotFound(identifier: "\(identifier) (no occurrence on \(date))")
             }
             event = occurrence
-        } else if masterEvent.hasRecurrenceRules && span == .futureEvents {
-            throw EventKitError.invalidTimeRange(
-                message: "For recurring events with span 'future', occurrence_date is required to identify which occurrence to modify from."
-            )
         } else {
-            event = masterEvent
+            throw EventKitError.invalidTimeRange(
+                message: "For recurring events, occurrence_date is required to identify which occurrence to modify."
+            )
         }
 
         if let t = title { event.title = t }
@@ -512,16 +518,16 @@ actor EventKitManager {
             throw EventKitError.eventNotFound(identifier: identifier)
         }
 
-        // For recurring events with this/future span, resolve the specific occurrence
+        // For recurring events, always resolve the specific occurrence (this/future both need it).
+        // Non-recurring events operate on master directly.
         if masterEvent.hasRecurrenceRules, let date = occurrenceDate {
             guard let occurrence = findOccurrence(identifier: identifier, on: date) else {
                 throw EventKitError.eventNotFound(identifier: "\(identifier) (no occurrence on \(date))")
             }
             try eventStore.remove(occurrence, span: span)
-        } else if masterEvent.hasRecurrenceRules && span != .thisEvent {
-            // futureEvents on master = deletes entire series — require occurrence_date
+        } else if masterEvent.hasRecurrenceRules {
             throw EventKitError.invalidTimeRange(
-                message: "For recurring events with span 'future', occurrence_date is required to identify which occurrence to start from."
+                message: "For recurring events, occurrence_date is required to identify which occurrence to delete."
             )
         } else {
             try eventStore.remove(masterEvent, span: span)

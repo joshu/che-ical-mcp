@@ -1197,7 +1197,8 @@ class CheICalMCPServer {
             clearRecurrence: clearRecurrence,
             structuredLocation: structuredLocation,
             span: span,
-            occurrenceDate: occurrenceDate
+            occurrenceDate: occurrenceDate,
+            applyToAll: spanStr == "all"
         )
 
         return "Updated event: \(event.title ?? "")"
@@ -2119,11 +2120,13 @@ class CheICalMCPServer {
     }
 
     /// Delete a list of events, handling span="all" by calling deleteEventSeries per event.
+    /// occurrenceDates maps event IDs to their occurrence dates (for recurring event resolution).
     private func deleteEventsWithSpan(
         eventIds: [String],
         spanStr: String,
         mode: String,
-        extraFields: [String: Any] = [:]
+        extraFields: [String: Any] = [:],
+        occurrenceDates: [String: Date]? = nil
     ) async throws -> String {
         let deleteAll = spanStr == "all"
 
@@ -2152,7 +2155,7 @@ class CheICalMCPServer {
         }
 
         let span: EKSpan = spanStr == "future" ? .futureEvents : .thisEvent
-        let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span)
+        let result = try await eventKitManager.deleteEventsBatch(identifiers: eventIds, span: span, occurrenceDates: occurrenceDates)
         var response: [String: Any] = [
             "dry_run": false,
             "mode": mode,
@@ -2257,10 +2260,18 @@ class CheICalMCPServer {
             }
 
             let eventIds = events.compactMap { $0.eventIdentifier }
+            // Build occurrence dates map from listed events (which are real occurrences)
+            var occDates: [String: Date] = [:]
+            for event in events {
+                if let eid = event.eventIdentifier {
+                    occDates[eid] = event.startDate
+                }
+            }
 
             return try await deleteEventsWithSpan(
                 eventIds: eventIds, spanStr: spanStr, mode: "by_date_range",
-                extraFields: ["calendar": calendarName]
+                extraFields: ["calendar": calendarName],
+                occurrenceDates: occDates
             )
 
         } else {

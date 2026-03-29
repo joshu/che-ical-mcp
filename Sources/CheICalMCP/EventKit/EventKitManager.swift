@@ -349,6 +349,20 @@ actor EventKitManager {
             }
         }
 
+        // Validate recurrence: start_time weekday must match days_of_week (#5)
+        if let rule = recurrenceRule, rule.frequency == .weekly, let days = rule.daysOfWeek, !days.isEmpty {
+            let weekday = Calendar.current.component(.weekday, from: startDate) // 1=Sun, 7=Sat
+            if !days.contains(weekday) {
+                let dayNames = ["", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+                let startDay = dayNames[weekday]
+                let expectedDays = days.compactMap { ($0 >= 1 && $0 <= 7) ? dayNames[$0] : nil }.joined(separator: ", ")
+                throw EventKitError.weekdayMismatch(
+                    startDay: startDay,
+                    expectedDays: expectedDays
+                )
+            }
+        }
+
         // Add recurrence rule
         if let rule = recurrenceRule {
             event.recurrenceRules = [createRecurrenceRule(from: rule)]
@@ -1554,6 +1568,7 @@ enum EventKitError: LocalizedError {
     case reminderNotFound(identifier: String)
     case calendarNameRequired(forType: String)
     case invalidTimeRange(message: String)
+    case weekdayMismatch(startDay: String, expectedDays: String)
 
     var errorDescription: String? {
         switch self {
@@ -1598,6 +1613,8 @@ enum EventKitError: LocalizedError {
             return "calendar_name is required for creating \(type). Use list_calendars to see available options."
         case .invalidTimeRange(let message):
             return "Invalid time range: \(message)"
+        case .weekdayMismatch(let startDay, let expectedDays):
+            return "start_time falls on \(startDay), which is not in days_of_week [\(expectedDays)]. Adjust start_time to a matching day."
         }
     }
 }

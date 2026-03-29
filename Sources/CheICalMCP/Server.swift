@@ -1188,7 +1188,7 @@ class CheICalMCPServer {
             alarmOffsets = alarmsArray.compactMap { $0.intValue }
         }
 
-        let recurrenceRule = try parseRecurrenceRule(from: arguments)
+        let recurrenceRule = try parseRecurrenceRule(from: arguments, defaultTimezone: timezone)
         let structuredLocation = parseStructuredLocation(from: arguments)
 
         let result = try await eventKitManager.createEvent(
@@ -1245,7 +1245,7 @@ class CheICalMCPServer {
             alarmOffsets = alarmsArray.compactMap { $0.intValue }
         }
 
-        let recurrenceRule = try parseRecurrenceRule(from: arguments)
+        let recurrenceRule = try parseRecurrenceRule(from: arguments, defaultTimezone: timezone)
         let clearRecurrence = arguments["clear_recurrence"]?.boolValue ?? false
         let structuredLocation = parseStructuredLocation(from: arguments)
         let clearTimezone = arguments["clear_timezone"]?.boolValue ?? false
@@ -2047,7 +2047,7 @@ class CheICalMCPServer {
 
             do {
                 // Parse recurrence and structured location from batch item
-                let batchRecurrence = try parseRecurrenceRule(from: eventDict)
+                let batchRecurrence = try parseRecurrenceRule(from: eventDict, defaultTimezone: batchTimezone)
                 let batchStructuredLocation = parseStructuredLocation(from: eventDict)
 
                 let result = try await eventKitManager.createEvent(
@@ -2606,7 +2606,7 @@ class CheICalMCPServer {
 
     // MARK: - Recurrence & Location Helpers
 
-    private func parseRecurrenceRule(from arguments: [String: Value]) throws -> RecurrenceRuleInput? {
+    private func parseRecurrenceRule(from arguments: [String: Value], defaultTimezone: TimeZone? = nil) throws -> RecurrenceRuleInput? {
         guard let recurrenceDict = arguments["recurrence"]?.objectValue else { return nil }
 
         guard let freqStr = recurrenceDict["frequency"]?.stringValue else {
@@ -2623,7 +2623,7 @@ class CheICalMCPServer {
         }
 
         let interval = recurrenceDict["interval"]?.intValue ?? 1
-        let endDate: Date? = try recurrenceDict["end_date"]?.stringValue.map { try parseFlexibleDate($0) }
+        let endDate: Date? = try recurrenceDict["end_date"]?.stringValue.map { try parseFlexibleDate($0, defaultTimezone: defaultTimezone) }
         let occurrenceCount = recurrenceDict["occurrence_count"]?.intValue
 
         var daysOfWeek: [Int]?

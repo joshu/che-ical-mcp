@@ -508,9 +508,11 @@ actor EventKitManager {
         // Validate recurrence weekday consistency (#5) — check when:
         // 1. A new recurrence rule is being set, OR
         // 2. start_time or timezone changed on an event that already has weekly recurrence
-        let effectiveRule: RecurrenceRuleInput? = recurrenceRule
+        // Skip entirely if clearRecurrence is true (event becoming non-recurring)
+        let effectiveRule: RecurrenceRuleInput? = clearRecurrence ? nil : recurrenceRule
         let existingWeeklyDays: [Int]? = {
-            guard recurrenceRule == nil, // only check existing rules if not replacing
+            guard !clearRecurrence, // skip if clearing recurrence
+                  recurrenceRule == nil, // only check existing rules if not replacing
                   startDate != nil || timezone != nil, // only if start/tz changed
                   let rules = event.recurrenceRules,
                   let firstRule = rules.first,

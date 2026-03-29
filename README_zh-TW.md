@@ -92,7 +92,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
-swift build -c release
+make release && make install
 ```
 
 首次使用時，macOS 會詢問**行事曆**和**提醒事項**存取權限 - 請點選「允許」。
@@ -215,7 +215,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 ```bash
 git clone https://github.com/kiki830621/che-ical-mcp.git
 cd che-ical-mcp
-swift build -c release
+make release && make install
 
 # 複製到 ~/bin 並註冊
 cp .build/release/CheICalMCP ~/bin/
@@ -367,7 +367,7 @@ claude mcp add --scope user --transport stdio che-ical-mcp -- ~/bin/CheICalMCP
 
 | 問題 | 解決方法 |
 |------|----------|
-| Server disconnected | 重新編譯 `swift build -c release` |
+| Server disconnected | 重新編譯 `make release && make install` |
 | 權限被拒絕 | 在系統設定 > 隱私權與安全性中授予行事曆/提醒事項存取權限 |
 | 權限對話框沒有出現 | 參考[授予權限](#授予權限)中的 macOS Sequoia 解決方案 |
 | **SSH 連線時權限被拒** | 參考下方 [SSH 存取](#ssh-存取) |

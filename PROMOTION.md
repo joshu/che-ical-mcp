@@ -56,7 +56,7 @@ Built with Swift using native EventKit framework
 
 4/4 Installation is simple:
 
-git clone + swift build -c release
+git clone + make release && make install
 Then add to Claude Desktop or Claude Code
 
 macOS 13.0+ required

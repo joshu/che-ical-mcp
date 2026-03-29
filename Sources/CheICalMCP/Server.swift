@@ -1230,7 +1230,7 @@ class CheICalMCPServer {
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
         let isAllDay = arguments["all_day"]?.boolValue
-        let occurrenceDate: Date? = try arguments["occurrence_date"]?.stringValue.map { try parseFlexibleDate($0) }
+        let occurrenceDate: Date? = try arguments["occurrence_date"]?.stringValue.map { try parseFlexibleDate($0, defaultTimezone: timezone) }
 
         let spanStr = arguments["span"]?.stringValue ?? "this"
         let span: EKSpan

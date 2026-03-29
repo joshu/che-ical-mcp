@@ -505,8 +505,23 @@ actor EventKitManager {
             }
         }
 
-        // Validate recurrence weekday consistency (#5) — same check as createEvent
-        if let rule = recurrenceRule, rule.frequency == .weekly, let days = rule.daysOfWeek, !days.isEmpty {
+        // Validate recurrence weekday consistency (#5) — check when:
+        // 1. A new recurrence rule is being set, OR
+        // 2. start_time or timezone changed on an event that already has weekly recurrence
+        let effectiveRule: RecurrenceRuleInput? = recurrenceRule
+        let existingWeeklyDays: [Int]? = {
+            guard recurrenceRule == nil, // only check existing rules if not replacing
+                  startDate != nil || timezone != nil, // only if start/tz changed
+                  let rules = event.recurrenceRules,
+                  let firstRule = rules.first,
+                  firstRule.frequency == .weekly,
+                  let ekDays = firstRule.daysOfTheWeek, !ekDays.isEmpty
+            else { return nil }
+            return ekDays.map { $0.dayOfTheWeek.rawValue }
+        }()
+
+        let daysToValidate = effectiveRule.flatMap({ $0.frequency == .weekly ? $0.daysOfWeek : nil }) ?? existingWeeklyDays
+        if let days = daysToValidate, !days.isEmpty {
             var cal = Calendar.current
             if let tz = timezone ?? event.timeZone { cal.timeZone = tz }
             let weekday = cal.component(.weekday, from: event.startDate)

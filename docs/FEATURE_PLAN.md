@@ -261,7 +261,7 @@ func checkConflicts(startDate: Date, endDate: Date, calendar: EKCalendar?, exclu
 ```bash
 # 編譯
 cd /Users/che/Library/CloudStorage/Dropbox/che_workspace/projects/mcp/che-ical-mcp
-swift build -c release
+make release
 
 # 測試時區顯示
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize",...}

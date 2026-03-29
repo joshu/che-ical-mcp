@@ -101,7 +101,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 
 ---
 
-## All 25 Tools
+## All 28 Tools
 
 <details>
 <summary><b>Calendars (4)</b></summary>
@@ -121,9 +121,9 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | Tool | Description |
 |------|-------------|
 | `list_events` | List events with filter/sort/limit (v1.0.0) |
-| `create_event` | Create an event (with reminders, location, URL) |
-| `update_event` | Update an event |
-| `delete_event` | Delete an event |
+| `create_event` | Create an event (with reminders, location, URL, per-event timezone) |
+| `update_event` | Update an event (including timezone, recurrence, span for recurring) |
+| `delete_event` | Delete an event (with occurrence support for recurring) |
 
 </details>
 
@@ -134,7 +134,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 |------|-------------|
 | `list_reminders` | List reminders with filter/sort/limit, tags extraction (v1.0.0) |
 | `create_reminder` | Create a reminder with due date, tags (v1.3.0) |
-| `update_reminder` | Update a reminder (including tags) (v1.3.0) |
+| `update_reminder` | Update a reminder (including tags, `clear_due_date`) (v1.3.0) |
 | `complete_reminder` | Mark as completed/incomplete |
 | `delete_reminder` | Delete a reminder |
 | `search_reminders` | Search reminders by keyword(s) or tag (v1.3.0) |
@@ -149,7 +149,7 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 |------|-------------|
 | `search_events` | Search events by keyword(s) with AND/OR matching |
 | `list_events_quick` | Quick shortcuts: `today`, `tomorrow`, `this_week`, `next_7_days`, etc. |
-| `create_events_batch` | Create multiple events at once |
+| `create_events_batch` | Create multiple events at once (with per-event timezone) |
 | `check_conflicts` | Check for overlapping events in a time range |
 | `copy_event` | Copy an event to another calendar (with optional move) |
 | `move_events_batch` | Move multiple events to another calendar |
@@ -157,6 +157,17 @@ On first use, macOS will prompt for **Calendar** and **Reminders** access - clic
 | `find_duplicate_events` | Find duplicate events across calendars (v0.5.0) |
 | `create_reminders_batch` | Create multiple reminders at once (v0.9.0) |
 | `delete_reminders_batch` | Delete multiple reminders at once (v0.9.0) |
+
+</details>
+
+<details>
+<summary><b>Undo/Redo (3)</b> ✨ New in v1.4.0</summary>
+
+| Tool | Description |
+|------|-------------|
+| `undo` | Undo the most recent calendar/reminder operation |
+| `redo` | Redo the last undone operation |
+| `undo_history` | List undoable operations with timestamps |
 
 </details>
 
@@ -265,10 +276,31 @@ All date parameters now accept 4 formats:
 
 | Format | Example | Interpretation |
 |--------|---------|----------------|
-| Full ISO8601 | `"2026-02-06T14:00:00+08:00"` | Exact date and time |
-| Without timezone | `"2026-02-06T14:00:00"` | Uses system timezone |
-| Date only | `"2026-02-06"` | Midnight, system timezone |
+| Full ISO8601 | `"2026-02-06T14:00:00+08:00"` | Exact date and time (offset preserved) |
+| Without timezone | `"2026-02-06T14:00:00"` | Uses event `timezone` if provided, otherwise system timezone |
+| Date only | `"2026-02-06"` | Midnight in event `timezone` or system timezone |
 | Time only | `"14:00"` | Today at that time |
+
+### Per-Event Timezone (v1.5.0)
+
+Set the display timezone for individual events — essential for multi-timezone travel itineraries.
+
+```
+"Create a flight departure at 09:14 Berlin time"
+→ create_event(title: "Flight LH123", start_time: "2026-04-08T09:14:00", timezone: "Europe/Berlin", ...)
+
+"Update the hotel check-in to Dubai time"
+→ update_event(event_id: "...", timezone: "Asia/Dubai")
+
+"Remove the custom timezone from an event"
+→ update_event(event_id: "...", clear_timezone: true)
+```
+
+- **`timezone`** parameter accepts IANA identifiers (e.g., `Europe/Berlin`, `America/New_York`, `Asia/Taipei`)
+- When `timezone` is provided, naive datetimes (without offset) are interpreted in that timezone
+- Event output includes the event's own timezone in `timezone` field and formats `start_date_local`/`end_date_local` accordingly
+- Available on `create_event`, `update_event`, and `create_events_batch`
+- Undo/redo preserves per-event timezone
 
 ### Fuzzy Calendar Matching
 
@@ -305,6 +337,13 @@ Calendar names are now matched **case-insensitively**. If not found, the error m
 "Create a reminder to call mom tomorrow at 5 PM"
 "Mark 'Buy milk' as completed"
 "Delete the reminder about groceries"
+```
+
+### Reminder Management (v1.5.0)
+
+```
+"Remove the due date from 'Buy groceries'"
+→ update_reminder(reminder_id: "...", clear_due_date: true)
 ```
 
 ### Advanced Features (v0.3.0+)
@@ -397,12 +436,12 @@ macOS TCC (Transparency, Consent, and Control) grants privacy permissions **per-
 
 ## Technical Details
 
-- **Current Version**: v1.4.1
+- **Current Version**: v1.5.0
 - **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.11.0
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
 - **Platform**: macOS 13.0+ (Ventura and later)
-- **Tools**: 25 tools for calendars, events, reminders, tags, and advanced operations
+- **Tools**: 28 tools for calendars, events, reminders, tags, undo/redo, and advanced operations
 
 ---
 
@@ -410,6 +449,7 @@ macOS TCC (Transparency, Consent, and Control) grants privacy permissions **per-
 
 | Version | Changes |
 |---------|---------|
+| v1.5.0 | **Per-event timezone** (#12): `timezone` parameter on `create_event`/`update_event`/`create_events_batch`, event output uses event's own timezone, naive datetimes parsed in event timezone. **Clear due date** (#9): `clear_due_date` on `update_reminder`. **Weekday validation** (#5): `create_event`/`update_event` validate `start_time` weekday against `days_of_week`. **Undo/redo** (#8): 3 new tools (`undo`, `redo`, `undo_history`). **Recurring event fixes** (#7): occurrence-level delete/update with `occurrence_date`. **Swift 6 build** (#11): README updated for `make release` workflow |
 | v1.4.0 | **LLM reliability**: Fix default search range (±2yr instead of distantPast/Future), `searched_range` metadata in `search_events` response, `similar_events` hints in `create_events_batch`, LLM tips in tool descriptions |
 | v1.3.1 | **Docs fix**: Clarified that tags are MCP-level (not native Reminders.app tags); Apple provides no public API for native tags |
 | v1.3.0 | **Reminder tags** (MCP-level): `#hashtag` text stored in notes for `create_reminder`/`update_reminder`/`create_reminders_batch`, tag-based filtering in `search_reminders`, new `list_reminder_tags` tool; MCP SDK 0.11.0. Note: tags are searchable via MCP but do not appear as native Reminders.app tags (Apple provides no public API for this) |

@@ -1051,7 +1051,8 @@ actor EventKitManager {
         calendarSource: String? = nil,
         alarmOffsets: [Int]? = nil,
         locationTrigger: LocationTriggerInput? = nil,
-        clearLocationTrigger: Bool = false
+        clearLocationTrigger: Bool = false,
+        clearDueDate: Bool = false
     ) async throws -> EKReminder {
         try await requestReminderAccess()
 
@@ -1065,7 +1066,9 @@ actor EventKitManager {
         if let n = notes { reminder.notes = n }
         if let p = priority { reminder.priority = p }
 
-        if let due = dueDate {
+        if clearDueDate {
+            reminder.dueDateComponents = nil
+        } else if let due = dueDate {
             reminder.dueDateComponents = Calendar.current.dateComponents(
                 [.year, .month, .day, .hour, .minute],
                 from: due

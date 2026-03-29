@@ -488,6 +488,10 @@ class CheICalMCPServer {
                         "title": .object(["type": .string("string"), "description": .string("New title")]),
                         "notes": .object(["type": .string("string"), "description": .string("New notes")]),
                         "due_date": .object(["type": .string("string"), "description": .string("New due date")]),
+                        "clear_due_date": .object([
+                            "type": .string("boolean"),
+                            "description": .string("Set to true to remove due date from reminder")
+                        ]),
                         "priority": .object(["type": .string("integer"), "description": .string("New priority")]),
                         "calendar_name": .object(["type": .string("string"), "description": .string("Move reminder to a different list")]),
                         "calendar_source": .object(["type": .string("string"), "description": .string("Calendar source (e.g., 'iCloud', 'Google'). Required when multiple lists share the same name.")]),
@@ -1486,6 +1490,10 @@ class CheICalMCPServer {
         let newTags = arguments["tags"]?.arrayValue?.compactMap { $0.stringValue }
         let clearTags = arguments["clear_tags"]?.boolValue ?? false
         let dueDate: Date? = try arguments["due_date"]?.stringValue.map { try parseFlexibleDate($0) }
+        let clearDueDate = arguments["clear_due_date"]?.boolValue ?? false
+        if clearDueDate && dueDate != nil {
+            throw ToolError.invalidParameter("Cannot specify both due_date and clear_due_date")
+        }
         let priority = arguments["priority"]?.intValue
         let calendarName = arguments["calendar_name"]?.stringValue
         let calendarSource = arguments["calendar_source"]?.stringValue
@@ -1533,7 +1541,8 @@ class CheICalMCPServer {
             calendarName: calendarName,
             calendarSource: calendarSource,
             locationTrigger: locationTrigger,
-            clearLocationTrigger: clearLocationTrigger
+            clearLocationTrigger: clearLocationTrigger,
+            clearDueDate: clearDueDate
         )
 
         return "Updated reminder: \(reminder.title ?? "")"

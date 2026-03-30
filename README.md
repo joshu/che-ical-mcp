@@ -99,6 +99,23 @@ make release && make install
 
 On first use, macOS will prompt for **Calendar** and **Reminders** access - click "Allow".
 
+### CLI Mode (No MCP Server)
+
+All 28 tools can be invoked directly from the command line without running the MCP server:
+
+```bash
+# Flag-based: --key value pairs
+CheICalMCP --cli list_events --start_date 2026-03-29 --end_date 2026-03-30
+
+# JSON via stdin
+echo '{"tool":"list_calendars","arguments":{}}' | CheICalMCP --cli
+
+# Use with Claude Code via shell
+claude -p "Run: ~/bin/CheICalMCP --cli list_events_quick --range today"
+```
+
+Useful for launchd jobs, shell scripts, CI pipelines, and agents that prefer subprocess over MCP protocol. TCC permissions still required — run `CheICalMCP --setup` first if needed.
+
 ---
 
 ## All 28 Tools

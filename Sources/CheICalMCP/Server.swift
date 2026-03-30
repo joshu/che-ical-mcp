@@ -932,7 +932,7 @@ class CheICalMCPServer {
         }
     }
 
-    private func executeToolCall(name: String, arguments: [String: Value]) async throws -> String {
+    func executeToolCall(name: String, arguments: [String: Value]) async throws -> String {
         switch name {
         // Calendar Tools
         case "list_calendars":

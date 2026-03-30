@@ -57,6 +57,13 @@ if CommandLine.arguments.contains("--setup") {
     exit(0)
 }
 
-// Entry point
+// CLI mode: invoke tools directly without MCP server
+if CommandLine.arguments.contains("--cli") {
+    let server = try await CheICalMCPServer()
+    await CLIRunner.run(server: server, args: CommandLine.arguments)
+    exit(0)
+}
+
+// MCP server mode (default)
 let server = try await CheICalMCPServer()
 try await server.run()

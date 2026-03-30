@@ -22,6 +22,8 @@ enum AppVersion {
         \(displayName)
 
         Usage: \(name) [options]
+               \(name) --cli <tool> [--key value ...]
+               echo '{"tool":"...","arguments":{}}' | \(name) --cli
 
         Options:
           --version, -v    Show version information
@@ -29,6 +31,8 @@ enum AppVersion {
           --setup          Request Calendar & Reminders permissions and exit.
                            Run this once from Terminal before using with launchd
                            or other non-interactive environments.
+          --cli <tool>     Run a tool directly without MCP server.
+                           Pass arguments as --key value pairs, or pipe JSON via stdin.
 
         Version: \(current)
         Repository: https://github.com/kiki830621/che-ical-mcp

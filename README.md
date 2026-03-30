@@ -445,7 +445,9 @@ CheICalMCP --setup
 # Step 3: The binary now has permission — launchd jobs can use it
 ```
 
-> **Note**: `--setup` works best when launchd executes CheICalMCP **directly**. If launchd runs another process (e.g., Claude Code) which then spawns CheICalMCP, TCC may associate the permission with the parent process instead. In that case, manually add CheICalMCP in **System Settings → Privacy & Security → Calendar/Reminders**.
+> **Detection**: CheICalMCP automatically detects non-interactive sessions (missing `TERM` env var or direct launchd child) and provides targeted error messages with `--setup` instructions. This works even for indirect launch chains (launchd → Claude Code → CheICalMCP).
+>
+> **Note**: If `--setup` grants permission but the MCP still fails under launchd, TCC may have associated the permission with the parent process. In that case, manually add CheICalMCP in **System Settings → Privacy & Security → Calendar/Reminders**.
 
 ---
 

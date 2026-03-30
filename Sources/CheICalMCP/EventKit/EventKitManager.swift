@@ -20,6 +20,12 @@ actor EventKitManager {
             || ProcessInfo.processInfo.environment["SSH_CONNECTION"] != nil
     }
 
+    /// Detect if running under launchd (non-interactive session)
+    static var isLaunchdSession: Bool {
+        // PID 1 on macOS is launchd; if our parent is PID 1, we were launched by launchd
+        getppid() == 1
+    }
+
     func requestCalendarAccess() async throws {
         if hasCalendarAccess { return }
 
@@ -27,13 +33,15 @@ actor EventKitManager {
             let granted = try await eventStore.requestFullAccessToEvents()
             hasCalendarAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Calendar", isSSH: Self.isSSHSession)
+                throw EventKitError.accessDenied(
+                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .event)
             hasCalendarAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Calendar", isSSH: Self.isSSHSession)
+                throw EventKitError.accessDenied(
+                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
             }
         }
     }
@@ -45,13 +53,15 @@ actor EventKitManager {
             let granted = try await eventStore.requestFullAccessToReminders()
             hasReminderAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Reminders", isSSH: Self.isSSHSession)
+                throw EventKitError.accessDenied(
+                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .reminder)
             hasReminderAccess = granted
             if !granted {
-                throw EventKitError.accessDenied(type: "Reminders", isSSH: Self.isSSHSession)
+                throw EventKitError.accessDenied(
+                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
             }
         }
     }
@@ -1621,7 +1631,7 @@ struct LocationTriggerInput {
 // MARK: - Errors
 
 enum EventKitError: LocalizedError {
-    case accessDenied(type: String, isSSH: Bool = false)
+    case accessDenied(type: String, isSSH: Bool = false, isLaunchd: Bool = false)
     case calendarNotFound(identifier: String, available: [String] = [])
     case calendarNotFoundWithSource(name: String, source: String, available: [String] = [])
     case multipleCalendarsFound(name: String, sources: String)
@@ -1633,7 +1643,7 @@ enum EventKitError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .accessDenied(type: let type, isSSH: let isSSH):
+        case .accessDenied(type: let type, isSSH: let isSSH, isLaunchd: let isLaunchd):
             if isSSH {
                 return """
                 \(type) access denied (SSH session detected). \
@@ -1642,6 +1652,16 @@ enum EventKitError: LocalizedError {
                 2. Or grant Full Disk Access to /usr/sbin/sshd: \
                 System Settings → Privacy & Security → Full Disk Access → add sshd
                 3. After either step, restart the SSH session
+                """
+            }
+            if isLaunchd {
+                return """
+                \(type) access denied (launchd/automation session detected). \
+                macOS TCC cannot show permission dialogs in non-interactive sessions. Workarounds:
+                1. Run 'CheICalMCP --setup' once from Terminal to trigger the TCC permission dialog
+                2. Or manually add CheICalMCP in: \
+                System Settings → Privacy & Security → \(type)
+                3. After granting permission, restart the launchd job
                 """
             }
             return """

@@ -26,6 +26,9 @@ enum AppVersion {
         Options:
           --version, -v    Show version information
           --help, -h       Show this help message
+          --setup          Request Calendar & Reminders permissions and exit.
+                           Run this once from Terminal before using with launchd
+                           or other non-interactive environments.
 
         Version: \(current)
         Repository: https://github.com/kiki830621/che-ical-mcp

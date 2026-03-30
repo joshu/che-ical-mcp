@@ -413,6 +413,7 @@ If ambiguity is detected, the error message will list all available sources.
 | Permission denied | Grant Calendar/Reminders access in System Settings > Privacy & Security |
 | Permission dialog never appears | See [Grant Permissions](#grant-permissions) for macOS Sequoia workaround |
 | **Permission denied over SSH** | See [SSH Access](#ssh-access) below |
+| **Permission denied under launchd** | See [launchd / Automation](#launchd--automation) below |
 | Calendar not found | Ensure the calendar is visible in macOS Calendar app |
 | Reminders not syncing | Check iCloud sync in System Settings |
 
@@ -432,12 +433,26 @@ macOS TCC (Transparency, Consent, and Control) grants privacy permissions **per-
 
 > ⚠️ Workaround B grants `sshd` broad file access — only use this on machines you fully control.
 
+### launchd / Automation
+
+When running CheICalMCP from `launchd`, cron, or other non-interactive automation, macOS TCC cannot show permission dialogs. Use `--setup` to pre-grant permissions:
+
+```bash
+# Step 1: Run once from Terminal (triggers TCC permission dialog)
+CheICalMCP --setup
+
+# Step 2: Grant Calendar & Reminders access in the dialog that appears
+# Step 3: The binary now has permission — launchd jobs can use it
+```
+
+> **Note**: `--setup` works best when launchd executes CheICalMCP **directly**. If launchd runs another process (e.g., Claude Code) which then spawns CheICalMCP, TCC may associate the permission with the parent process instead. In that case, manually add CheICalMCP in **System Settings → Privacy & Security → Calendar/Reminders**.
+
 ---
 
 ## Technical Details
 
 - **Current Version**: v1.5.0
-- **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.11.0
+- **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.12.0
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
 - **Platform**: macOS 13.0+ (Ventura and later)

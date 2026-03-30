@@ -103,13 +103,81 @@ enum CLIRunner {
 
     // MARK: - Convert to MCP Value
 
-    /// Convert string dictionary to MCP Value dictionary for executeToolCall.
+    /// Convert string values to MCP Value with smart type inference.
+    /// Handlers use strict .boolValue/.intValue/.doubleValue, so we must
+    /// produce the correct Value variant — not just .string for everything.
+    static func inferValue(_ str: String) -> Value {
+        // Boolean
+        if str == "true" { return .bool(true) }
+        if str == "false" { return .bool(false) }
+        // Integer
+        if let intVal = Int(str) { return .int(intVal) }
+        // Double (only if contains dot to avoid int→double)
+        if str.contains("."), let dblVal = Double(str) { return .double(dblVal) }
+        // JSON array or object (starts with [ or {)
+        if (str.hasPrefix("[") || str.hasPrefix("{")),
+           let data = str.data(using: .utf8),
+           let parsed = try? JSONSerialization.jsonObject(with: data)
+        {
+            return jsonToValue(parsed)
+        }
+        // Default: string
+        return .string(str)
+    }
+
+    /// Convert string dictionary to MCP Value dictionary for flag-based args.
     static func toMCPArguments(_ args: [String: String]) -> [String: Value] {
         var result: [String: Value] = [:]
         for (key, value) in args {
-            result[key] = .string(value)
+            result[key] = inferValue(value)
         }
         return result
+    }
+
+    /// Convert raw JSON (from stdin) directly to MCP Value, preserving native types.
+    static func jsonToValue(_ obj: Any) -> Value {
+        switch obj {
+        case let str as String:
+            return .string(str)
+        case let num as NSNumber:
+            if CFGetTypeID(num) == CFBooleanGetTypeID() {
+                return .bool(num.boolValue)
+            }
+            if num.doubleValue == Double(num.intValue) && !"\(num)".contains(".") {
+                return .int(num.intValue)
+            }
+            return .double(num.doubleValue)
+        case let arr as [Any]:
+            return .array(arr.map { jsonToValue($0) })
+        case let dict as [String: Any]:
+            return .object(dict.mapValues { jsonToValue($0) })
+        case is NSNull:
+            return .string("")
+        default:
+            return .string("\(obj)")
+        }
+    }
+
+    /// Parse raw JSON stdin directly into MCP Value arguments (preserving types).
+    static func parseJSONInputToValues(_ input: String) throws -> (tool: String, arguments: [String: Value]) {
+        guard let data = input.data(using: .utf8),
+              let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            throw CLIError.invalidJSON("could not parse as JSON object")
+        }
+
+        guard let toolName = json["tool"] as? String else {
+            throw CLIError.missingToolField
+        }
+
+        var arguments: [String: Value] = [:]
+        if let args = json["arguments"] as? [String: Any] {
+            for (key, value) in args {
+                arguments[key] = jsonToValue(value)
+            }
+        }
+
+        return (toolName, arguments)
     }
 
     // MARK: - Run
@@ -118,7 +186,7 @@ enum CLIRunner {
     static func run(server: CheICalMCPServer, args: [String]) async {
         do {
             let toolName: String
-            let arguments: [String: String]
+            let mcpArgs: [String: Value]
 
             // Detect if stdin has data (piped JSON mode)
             if isatty(fileno(stdin)) == 0 {
@@ -127,18 +195,20 @@ enum CLIRunner {
                       !input.isEmpty
                 else {
                     // No stdin data, fall back to flag parsing
-                    (toolName, arguments) = try parseArgs(args)
-                    let mcpArgs = toMCPArguments(arguments)
-                    let result = try await server.executeToolCall(name: toolName, arguments: mcpArgs)
+                    let (tool, strArgs) = try parseArgs(args)
+                    let result = try await server.executeToolCall(name: tool, arguments: toMCPArguments(strArgs))
                     print(result)
                     return
                 }
-                (toolName, arguments) = try parseJSONInput(input)
+                // JSON stdin: preserve native types directly
+                (toolName, mcpArgs) = try parseJSONInputToValues(input)
             } else {
-                (toolName, arguments) = try parseArgs(args)
+                // Flag-based: infer types from strings
+                let (tool, strArgs) = try parseArgs(args)
+                toolName = tool
+                mcpArgs = toMCPArguments(strArgs)
             }
 
-            let mcpArgs = toMCPArguments(arguments)
             let result = try await server.executeToolCall(name: toolName, arguments: mcpArgs)
             print(result)
         } catch {
@@ -152,7 +222,11 @@ enum CLIRunner {
             {
                 print(str)
             } else {
-                print("{\"error\":true,\"message\":\"\(error.localizedDescription)\"}")
+                let escaped = error.localizedDescription
+                    .replacingOccurrences(of: "\\", with: "\\\\")
+                    .replacingOccurrences(of: "\"", with: "\\\"")
+                    .replacingOccurrences(of: "\n", with: "\\n")
+                print("{\"error\":true,\"message\":\"\(escaped)\"}")
             }
             exit(1)
         }

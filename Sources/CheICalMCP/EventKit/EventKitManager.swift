@@ -15,16 +15,20 @@ actor EventKitManager {
 
     // MARK: - Access Request
 
-    private static var isSSHSession: Bool {
+    private static let isSSHSession: Bool =
         ProcessInfo.processInfo.environment["SSH_CLIENT"] != nil
             || ProcessInfo.processInfo.environment["SSH_CONNECTION"] != nil
-    }
 
-    /// Detect if running under launchd (non-interactive session)
-    static var isLaunchdSession: Bool {
-        // PID 1 on macOS is launchd; if our parent is PID 1, we were launched by launchd
+    /// Detect if running in a non-interactive session (launchd, cron, etc.)
+    /// Uses multiple heuristics: direct launchd child (ppid==1) OR missing TERM env var.
+    /// This catches both direct launchd jobs AND indirect chains (launchd → Claude → MCP)
+    /// where TERM is typically absent.
+    private static let isNonInteractiveSession: Bool =
         getppid() == 1
-    }
+            || ProcessInfo.processInfo.environment["TERM"] == nil
+
+    /// Test-accessible wrapper
+    static var isNonInteractive: Bool { isNonInteractiveSession }
 
     func requestCalendarAccess() async throws {
         if hasCalendarAccess { return }
@@ -34,14 +38,14 @@ actor EventKitManager {
             hasCalendarAccess = granted
             if !granted {
                 throw EventKitError.accessDenied(
-                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
+                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isNonInteractiveSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .event)
             hasCalendarAccess = granted
             if !granted {
                 throw EventKitError.accessDenied(
-                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
+                    type: "Calendar", isSSH: Self.isSSHSession, isLaunchd: Self.isNonInteractiveSession)
             }
         }
     }
@@ -54,14 +58,14 @@ actor EventKitManager {
             hasReminderAccess = granted
             if !granted {
                 throw EventKitError.accessDenied(
-                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
+                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isNonInteractiveSession)
             }
         } else {
             let granted = try await eventStore.requestAccess(to: .reminder)
             hasReminderAccess = granted
             if !granted {
                 throw EventKitError.accessDenied(
-                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isLaunchdSession)
+                    type: "Reminders", isSSH: Self.isSSHSession, isLaunchd: Self.isNonInteractiveSession)
             }
         }
     }
@@ -1644,6 +1648,19 @@ enum EventKitError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .accessDenied(type: let type, isSSH: let isSSH, isLaunchd: let isLaunchd):
+            if isSSH && isLaunchd {
+                return """
+                \(type) access denied (SSH + non-interactive session detected). \
+                macOS TCC does not carry privacy permissions to SSH sessions, \
+                and permission dialogs cannot appear in non-interactive environments. Workarounds:
+                1. Run 'CheICalMCP --setup' once from Terminal on the target Mac (not over SSH)
+                2. Or manually add CheICalMCP in: \
+                System Settings → Privacy & Security → \(type)
+                3. Or grant Full Disk Access to /usr/sbin/sshd: \
+                System Settings → Privacy & Security → Full Disk Access → add sshd
+                4. After any step, restart both the SSH session and the launchd job
+                """
+            }
             if isSSH {
                 return """
                 \(type) access denied (SSH session detected). \
@@ -1656,7 +1673,7 @@ enum EventKitError: LocalizedError {
             }
             if isLaunchd {
                 return """
-                \(type) access denied (launchd/automation session detected). \
+                \(type) access denied (non-interactive session detected). \
                 macOS TCC cannot show permission dialogs in non-interactive sessions. Workarounds:
                 1. Run 'CheICalMCP --setup' once from Terminal to trigger the TCC permission dialog
                 2. Or manually add CheICalMCP in: \

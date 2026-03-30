@@ -14,6 +14,12 @@ if CommandLine.arguments.contains("--help") || CommandLine.arguments.contains("-
 }
 
 if CommandLine.arguments.contains("--setup") {
+    // Warn if running in a non-interactive environment where TCC dialogs cannot appear
+    if ProcessInfo.processInfo.environment["TERM"] == nil || getppid() == 1 {
+        print("WARNING: --setup appears to be running in a non-interactive session.")
+        print("Permission dialogs cannot appear here. Run this command from Terminal.app instead.\n")
+    }
+
     print("CheICalMCP Setup — Requesting Calendar & Reminders permissions...")
     print("(This triggers macOS TCC permission dialogs for this binary)\n")
 

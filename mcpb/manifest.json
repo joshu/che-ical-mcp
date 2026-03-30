@@ -2,9 +2,9 @@
   "manifest_version": "0.3",
   "name": "che-ical-mcp",
   "display_name": "macOS Calendar & Reminders",
-  "version": "1.4.1",
+  "version": "1.6.0",
   "description": "Native EventKit integration for macOS Calendar and Reminders apps",
-  "long_description": "A powerful MCP server providing 25 tools for managing macOS Calendar events and Reminders. Features include flexible date parsing, fuzzy calendar matching, batch operations with dry-run preview, advanced filtering/sorting/limiting, conflict detection, duplicate finding, multi-keyword search, MCP-level #hashtag tags for reminders (searchable via MCP; native Reminders tags not supported by Apple's public API), and support for iCloud, Google, and Exchange calendars. Requires macOS 13.0 or later.",
+  "long_description": "A powerful MCP server providing 28 tools for managing macOS Calendar events and Reminders. Features include per-event timezone support, undo/redo, flexible date parsing, fuzzy calendar matching, batch operations with dry-run preview, advanced filtering/sorting/limiting, conflict detection, duplicate finding, multi-keyword search, recurring event occurrence-level operations, MCP-level #hashtag tags for reminders, and support for iCloud, Google, and Exchange calendars. Requires macOS 13.0 or later.",
   "author": {
     "name": "Che Cheng",
     "url": "https://github.com/kiki830621"
@@ -33,12 +33,12 @@
     { "name": "create_calendar", "description": "Create a new calendar or reminder list" },
     { "name": "delete_calendar", "description": "Delete a calendar by its identifier" },
     { "name": "list_events", "description": "List calendar events in a date range" },
-    { "name": "create_event", "description": "Create a new calendar event with optional reminders, recurrence, and structured location" },
-    { "name": "update_event", "description": "Update an existing calendar event" },
-    { "name": "delete_event", "description": "Delete a calendar event" },
+    { "name": "create_event", "description": "Create a new calendar event with optional reminders, recurrence, structured location, and per-event timezone" },
+    { "name": "update_event", "description": "Update an existing calendar event (including timezone, recurrence span for recurring)" },
+    { "name": "delete_event", "description": "Delete a calendar event (with occurrence support for recurring)" },
     { "name": "list_reminders", "description": "List reminders from the Reminders app" },
     { "name": "create_reminder", "description": "Create a new reminder with optional due date, recurrence, location trigger, and tags" },
-    { "name": "update_reminder", "description": "Update an existing reminder (including tags)" },
+    { "name": "update_reminder", "description": "Update an existing reminder (including tags, clear_due_date)" },
     { "name": "complete_reminder", "description": "Mark a reminder as completed or incomplete" },
     { "name": "delete_reminder", "description": "Delete a reminder" },
     { "name": "search_events", "description": "Search events by keyword(s) with AND/OR matching" },
@@ -53,7 +53,10 @@
     { "name": "search_reminders", "description": "Search reminders by keyword(s) or tag with AND/OR matching" },
     { "name": "create_reminders_batch", "description": "Create multiple reminders at once (with tags support)" },
     { "name": "delete_reminders_batch", "description": "Delete multiple reminders at once" },
-    { "name": "list_reminder_tags", "description": "List all unique tags used across reminders with usage counts" }
+    { "name": "list_reminder_tags", "description": "List all unique tags used across reminders with usage counts" },
+    { "name": "undo", "description": "Undo the most recent calendar/reminder operation" },
+    { "name": "redo", "description": "Redo the last undone operation" },
+    { "name": "undo_history", "description": "List undoable operations with timestamps" }
   ],
   "compatibility": {
     "platforms": ["darwin"]

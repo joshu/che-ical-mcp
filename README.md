@@ -470,7 +470,7 @@ CheICalMCP --setup
 
 ## Technical Details
 
-- **Current Version**: v1.5.0
+- **Current Version**: v1.6.0
 - **Framework**: [MCP Swift SDK](https://github.com/modelcontextprotocol/swift-sdk) v0.12.0
 - **Calendar API**: EventKit (native macOS framework)
 - **Transport**: stdio
@@ -483,6 +483,7 @@ CheICalMCP --setup
 
 | Version | Changes |
 |---------|---------|
+| v1.6.0 | **`--setup` flag** (#13): pre-authorize TCC permissions for launchd/automation. Non-interactive session detection (TERM + ppid). Combined SSH+launchd error messages. **`--cli` mode** (#14): invoke all 28 tools directly from command line without MCP server. Flag-based (`--key value`) and JSON stdin modes. Smart type inference for bool/int/double/array params. MCP Swift SDK 0.12.0 (Swift 6.3 compat). |
 | v1.5.0 | **Per-event timezone** (#12): `timezone` parameter on `create_event`/`update_event`/`create_events_batch`, event output uses event's own timezone, naive datetimes parsed in event timezone. **Clear due date** (#9): `clear_due_date` on `update_reminder`. **Weekday validation** (#5): `create_event`/`update_event` validate `start_time` weekday against `days_of_week`. **Undo/redo** (#8): 3 new tools (`undo`, `redo`, `undo_history`). **Recurring event fixes** (#7): occurrence-level delete/update with `occurrence_date`. **Swift 6 build** (#11): README updated for `make release` workflow |
 | v1.4.0 | **LLM reliability**: Fix default search range (±2yr instead of distantPast/Future), `searched_range` metadata in `search_events` response, `similar_events` hints in `create_events_batch`, LLM tips in tool descriptions |
 | v1.3.1 | **Docs fix**: Clarified that tags are MCP-level (not native Reminders.app tags); Apple provides no public API for native tags |

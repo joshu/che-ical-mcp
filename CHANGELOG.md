@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-04-01
+
+### Added
+- **Attendee & organizer info** (#17): Event responses now include `attendees` array and `organizer` object (read-only from EventKit)
+  - Each attendee: name, email, role, status, type, is_current_user
+  - Organizer: name, email, is_current_user
+  - Available in: `list_events`, `search_events`, `list_events_quick`, `check_conflicts`
+  - Omitted when event has no participants
+
+### Changed
+- **Refactored event dict construction**: Extracted shared `formatEventDict` method, eliminating 3 duplicated event-to-JSON closures (~60 lines removed)
+- **New `ParticipantFormatting.swift`**: Participant utilities as testable free functions
+
+### Added (Tests)
+- `ParticipantFormattingTests.swift`: 7 tests covering email extraction, role/status/type mapping
+
 ## [1.6.0] - 2026-03-31
 
 ### Added

@@ -1113,36 +1113,7 @@ class CheICalMCPServer {
             events = Array(events.prefix(limit))
         }
 
-        let result = events.map { event -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": event.eventIdentifier ?? "",
-                "title": event.title ?? "",
-                "start_date": dateFormatter.string(from: event.startDate),
-                "start_date_local": formatLocal(event.startDate, in: event.timeZone),
-                "end_date": dateFormatter.string(from: event.endDate),
-                "end_date_local": formatLocal(event.endDate, in: event.timeZone),
-                "timezone": (event.timeZone ?? TimeZone.current).identifier,
-                "is_all_day": event.isAllDay,
-                "calendar": event.calendar.title
-            ]
-            if let notes = event.notes { dict["notes"] = notes }
-            if let location = event.location { dict["location"] = location }
-            if let url = event.url { dict["url"] = url.absoluteString }
-            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
-                dict["is_recurring"] = true
-                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
-            }
-            if let structured = event.structuredLocation {
-                var locDict: [String: Any] = ["title": structured.title ?? ""]
-                if let geo = structured.geoLocation {
-                    locDict["latitude"] = geo.coordinate.latitude
-                    locDict["longitude"] = geo.coordinate.longitude
-                }
-                if structured.radius > 0 { locDict["radius"] = structured.radius }
-                dict["structured_location"] = locDict
-            }
-            return dict
-        }
+        let result = events.map { formatEventDict($0) }
 
         var metadata: [String: Any] = [
             "total_in_range": totalInRange,
@@ -1884,36 +1855,7 @@ class CheICalMCPServer {
             calendarSource: calendarSource
         )
 
-        let result = events.map { event -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": event.eventIdentifier ?? "",
-                "title": event.title ?? "",
-                "start_date": dateFormatter.string(from: event.startDate),
-                "start_date_local": formatLocal(event.startDate, in: event.timeZone),
-                "end_date": dateFormatter.string(from: event.endDate),
-                "end_date_local": formatLocal(event.endDate, in: event.timeZone),
-                "timezone": (event.timeZone ?? TimeZone.current).identifier,
-                "is_all_day": event.isAllDay,
-                "calendar": event.calendar.title
-            ]
-            if let notes = event.notes { dict["notes"] = notes }
-            if let location = event.location { dict["location"] = location }
-            if let url = event.url { dict["url"] = url.absoluteString }
-            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
-                dict["is_recurring"] = true
-                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
-            }
-            if let structured = event.structuredLocation {
-                var locDict: [String: Any] = ["title": structured.title ?? ""]
-                if let geo = structured.geoLocation {
-                    locDict["latitude"] = geo.coordinate.latitude
-                    locDict["longitude"] = geo.coordinate.longitude
-                }
-                if structured.radius > 0 { locDict["radius"] = structured.radius }
-                dict["structured_location"] = locDict
-            }
-            return dict
-        }
+        let result = events.map { formatEventDict($0) }
 
         let response: [String: Any] = [
             "keywords": keywords,
@@ -1949,36 +1891,7 @@ class CheICalMCPServer {
             calendarSource: calendarSource
         )
 
-        let result = events.map { event -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": event.eventIdentifier ?? "",
-                "title": event.title ?? "",
-                "start_date": dateFormatter.string(from: event.startDate),
-                "start_date_local": formatLocal(event.startDate, in: event.timeZone),
-                "end_date": dateFormatter.string(from: event.endDate),
-                "end_date_local": formatLocal(event.endDate, in: event.timeZone),
-                "timezone": (event.timeZone ?? TimeZone.current).identifier,
-                "is_all_day": event.isAllDay,
-                "calendar": event.calendar.title
-            ]
-            if let notes = event.notes { dict["notes"] = notes }
-            if let location = event.location { dict["location"] = location }
-            if let url = event.url { dict["url"] = url.absoluteString }
-            if event.hasRecurrenceRules, let rules = event.recurrenceRules {
-                dict["is_recurring"] = true
-                dict["recurrence_rules"] = rules.map { self.formatRecurrenceRule($0) }
-            }
-            if let structured = event.structuredLocation {
-                var locDict: [String: Any] = ["title": structured.title ?? ""]
-                if let geo = structured.geoLocation {
-                    locDict["latitude"] = geo.coordinate.latitude
-                    locDict["longitude"] = geo.coordinate.longitude
-                }
-                if structured.radius > 0 { locDict["radius"] = structured.radius }
-                dict["structured_location"] = locDict
-            }
-            return dict
-        }
+        let result = events.map { formatEventDict($0) }
 
         // Include the computed date range in response
         var response: [String: Any] = [
@@ -2148,20 +2061,7 @@ class CheICalMCPServer {
             excludeEventId: excludeEventId
         )
 
-        let result = conflicts.map { event -> [String: Any] in
-            var dict: [String: Any] = [
-                "id": event.eventIdentifier ?? "",
-                "title": event.title ?? "",
-                "start_date": dateFormatter.string(from: event.startDate),
-                "start_date_local": formatLocal(event.startDate, in: event.timeZone),
-                "end_date": dateFormatter.string(from: event.endDate),
-                "end_date_local": formatLocal(event.endDate, in: event.timeZone),
-                "timezone": (event.timeZone ?? TimeZone.current).identifier,
-                "calendar": event.calendar.title
-            ]
-            if let location = event.location { dict["location"] = location }
-            return dict
-        }
+        let result = conflicts.map { formatEventDict($0) }
 
         let response: [String: Any] = [
             "has_conflicts": !conflicts.isEmpty,
@@ -2471,6 +2371,49 @@ class CheICalMCPServer {
             "duplicates": result
         ]
         return formatJSON(response)
+    }
+
+    // MARK: - Event Formatting
+
+    /// Shared event dict builder for all event-returning handlers.
+    /// Includes attendees and organizer when present.
+    private func formatEventDict(_ event: EKEvent) -> [String: Any] {
+        var dict: [String: Any] = [
+            "id": event.eventIdentifier ?? "",
+            "title": event.title ?? "",
+            "start_date": dateFormatter.string(from: event.startDate),
+            "start_date_local": formatLocal(event.startDate, in: event.timeZone),
+            "end_date": dateFormatter.string(from: event.endDate),
+            "end_date_local": formatLocal(event.endDate, in: event.timeZone),
+            "timezone": (event.timeZone ?? TimeZone.current).identifier,
+            "is_all_day": event.isAllDay,
+            "calendar": event.calendar.title
+        ]
+        if let notes = event.notes { dict["notes"] = notes }
+        if let location = event.location { dict["location"] = location }
+        if let url = event.url { dict["url"] = url.absoluteString }
+        if event.hasRecurrenceRules, let rules = event.recurrenceRules {
+            dict["is_recurring"] = true
+            dict["recurrence_rules"] = rules.map { formatRecurrenceRule($0) }
+        }
+        if let structured = event.structuredLocation {
+            var locDict: [String: Any] = ["title": structured.title ?? ""]
+            if let geo = structured.geoLocation {
+                locDict["latitude"] = geo.coordinate.latitude
+                locDict["longitude"] = geo.coordinate.longitude
+            }
+            if structured.radius > 0 { locDict["radius"] = structured.radius }
+            dict["structured_location"] = locDict
+        }
+        // Attendees and organizer (read-only from EventKit)
+        let (attendees, organizer) = formatAttendeesInfo(event)
+        if let attendees = attendees, !attendees.isEmpty {
+            dict["attendees"] = attendees
+        }
+        if let organizer = organizer {
+            dict["organizer"] = organizer
+        }
+        return dict
     }
 
     // MARK: - Helpers
